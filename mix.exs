@@ -25,4 +25,12 @@ defmodule KinoCopilot.MixProject do
       {:openai, "~> 0.5.4"},
     ]
   end
+  
+  def package do
+    [
+      maintainers: ["Thomas Millar"],
+      licenses: ["Apache-2.0"],
+      links: %{ "GitHub" => "https://github.com/thmsmlr/kino_copilo" }
+    ]
+  end
 end
