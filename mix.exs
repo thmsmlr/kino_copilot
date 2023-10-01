@@ -5,9 +5,11 @@ defmodule KinoCopilot.MixProject do
     [
       app: :kino_copilot,
       version: "0.1.0",
+      description: "Bringing ChatGPT to you livebook",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      package: package()
     ]
   end
 
@@ -30,7 +32,9 @@ defmodule KinoCopilot.MixProject do
     [
       maintainers: ["Thomas Millar"],
       licenses: ["Apache-2.0"],
-      links: %{ "GitHub" => "https://github.com/thmsmlr/kino_copilo" }
+      links: %{
+        "GitHub" => "https://github.com/thmsmlr/kino_copilot"
+      }
     ]
   end
 end
