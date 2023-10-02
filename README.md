@@ -6,6 +6,8 @@
 Bringing the power of ChatGPT into [Livebook](https://livebook.dev)!
 KinoCopilot is a series of Kino SmartCells which allow you to have an AI Copilot help you write code.
 
+![demo](https://github.com/thmsmlr/kino_copilot/assets/167206/4d38b1a3-4ca5-4898-a762-8170c6072aa9)
+
 ## Installation
 
 To bring KinoCopilot to Livebook all you need to do is Mix.install/2:
