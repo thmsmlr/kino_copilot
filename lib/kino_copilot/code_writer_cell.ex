@@ -277,18 +277,22 @@ defmodule KinoCopilot.CodeWriterCell do
     IO.inspect(arguments)
 
     # You would think JSON decoding is the right solution here, but you'd be wrong.
-    code =
-      arguments
-      |> String.replace(~r"{\s*\"code\"\s*:\s*\"+", "")
-      |> String.replace_suffix("}", "")
-      |> String.replace_trailing("\n", "")
-      |> String.replace_trailing(" ", "")
-      |> String.replace_suffix("\"", "")
-      |> String.replace("\\\"", "\"")
-      |> String.replace("\\n", "\n")
+    code = parse_function_call(arguments)
 
     code
     |> Code.format_string!()
     |> IO.iodata_to_binary()
+  end
+
+  def parse_function_call(response) do
+    response
+      |> String.replace(~r"{\s*\"code\"\s*:\s*\"+", "")
+      |> String.replace_suffix("}", "")
+      |> String.replace_trailing("\n", "")
+      |> String.replace_trailing(" ", "")
+      |> String.replace_suffix("\"\"\"", "")
+      |> String.replace_suffix("\"", "")
+      |> String.replace("\\\"", "\"")
+      |> String.replace("\\n", "\n")
   end
 end
