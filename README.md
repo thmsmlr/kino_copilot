@@ -14,8 +14,25 @@ To bring KinoCopilot to Livebook all you need to do is Mix.install/2:
 
 ```elixir
 Mix.install([
-  {:kino_copilot, "~> 0.1.0"}
+  {:kino_copilot, "~> 0.1.1"}
 ])
+```
+
+By default we'll use the `LB_OPENAI_API_KEY` for the API key. 
+Optionally, however, you can explicitly pass in your API key and specify which model to use. 
+
+```elixir
+Mix.install(
+  [
+    {:kino_copilot, "~> 0.1.0"}
+  ], 
+  config: [
+    kino_copilot: [
+      api_key: System.fetch_env!("LB_OPENAI_API_KEY"),
+      model: "gpt-3.5-turbo"
+    ]
+  ]
+)
 ```
 
 ## Development

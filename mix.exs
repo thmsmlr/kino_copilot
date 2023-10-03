@@ -4,7 +4,7 @@ defmodule KinoCopilot.MixProject do
   def project do
     [
       app: :kino_copilot,
-      version: "0.1.0",
+      version: "0.1.1",
       description: "Bringing ChatGPT to you livebook",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
@@ -25,6 +25,7 @@ defmodule KinoCopilot.MixProject do
     [
       {:kino, "~> 0.7"},
       {:openai, "~> 0.5.4"},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
   

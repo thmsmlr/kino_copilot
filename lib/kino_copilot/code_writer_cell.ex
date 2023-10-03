@@ -3,16 +3,19 @@ defmodule KinoCopilot.CodeWriterCell do
 
   use Kino.JS, assets_path: "lib/assets/code_writer_cell"
   use Kino.JS.Live
-  use Kino.SmartCell, name: "AI Codewriter"
+  use Kino.SmartCell, name: "AI Copilot"
 
   @impl true
   def init(_attrs, ctx) do
+    errors = get_errors()
+
     ctx =
       ctx
       |> assign(
         message: "",
         gpt_task: nil,
-        loading: false
+        loading: false,
+        errors: errors
       )
 
     {:ok, ctx,
@@ -24,10 +27,37 @@ defmodule KinoCopilot.CodeWriterCell do
      ]}
   end
 
+  defp get_errors() do
+    case get_api_key() do
+      nil ->
+        [
+          """
+            Missing secret \"OPENAI_API_KEY\". Add the secret to the livebook and restart the session.
+
+            Alternatively, you can provide the API key during your Mix.Install like so,
+
+            Mix.install([
+              {:kino_copilot, "~> #{KinoCopilot.MixProject.project()[:version]}"}
+            ], config: [
+              kino_copilot: [
+                api_key: System.fetch_env!("LB_OPENAI_API_KEY")
+              ]
+            ])
+          """
+        ]
+
+      _ ->
+        nil
+    end
+  end
+
   @impl true
   def handle_connect(ctx) do
+    errors = get_errors()
+
     payload = %{
-      message: ctx.assigns.message
+      message: ctx.assigns.message,
+      errors: errors
     }
 
     {:ok, payload, ctx}
@@ -41,31 +71,37 @@ defmodule KinoCopilot.CodeWriterCell do
   end
 
   @impl true
+  def handle_event("update_errors", errors, ctx) do
+    ctx = assign(ctx, errors: errors)
+    broadcast_event(ctx, "update_errors", errors)
+    {:noreply, ctx}
+  end
+
+  @impl true
   def handle_event("submit_message", message, ctx) do
     cell_id = get_cell_id(ctx)
     livebook_pid = get_livebook_pid_for_cell(cell_id)
     code = get_current_code(livebook_pid, cell_id)
+    errors = get_errors()
 
-    if ctx.assigns.gpt_task == nil && message != "" do
-      task =
-        Task.async(fn ->
-          call_gpt(message, code)
-        end)
+    cond do
+      errors != nil ->
+        ctx = ctx |> assign(message: "", errors: errors)
+        broadcast_event(ctx, "update_message", "")
+        broadcast_event(ctx, "update_errors", errors)
 
-      ctx =
-        ctx
-        |> assign(
-          gpt_task: task,
-          message: "",
-          loading: true
-        )
+        {:noreply, ctx}
 
-      broadcast_event(ctx, "update_loading", true)
-      broadcast_event(ctx, "update_message", "")
+      ctx.assigns.gpt_task == nil && message != "" ->
+        task = Task.async(fn -> call_gpt(message, code) end)
+        ctx = ctx |> assign(gpt_task: task, message: "", loading: true)
+        broadcast_event(ctx, "update_loading", true)
+        broadcast_event(ctx, "update_message", "")
 
-      {:noreply, ctx}
-    else
-      {:noreply, ctx}
+        {:noreply, ctx}
+
+      true ->
+        {:noreply, ctx}
     end
   end
 
@@ -165,46 +201,63 @@ defmodule KinoCopilot.CodeWriterCell do
     code
   end
 
+  defp get_api_key() do
+    Application.get_env(:kino_copilot, :api_key) ||
+      System.get_env("LB_OPENAI_API_KEY")
+  end
+
+  defp get_model() do
+    Application.get_env(:kino_copilot, :default_model, "gpt-3.5-turbo")
+  end
+
   def call_gpt(user_query, code \\ nil) do
     func = "run_elixir"
-    model = Application.get_env(:kino_copilot, :default_model, "gpt-3.5-turbo")
+    model = get_model()
+
+    config_override = %OpenAI.Config{
+      api_key: get_api_key(),
+      http_options: [recv_timeout: 5 * 60 * 1000]
+    }
 
     {:ok, resp} =
       OpenAI.chat_completion(
-        model: model,
-        messages:
-          [
-            %{
-              role: "system",
-              content:
-                "You are an Senior Elixir developer whos job it is to write the correct code to answer the users questions."
-            },
-            if(code != nil,
-              do: %{
+        [
+          model: model,
+          messages:
+            [
+              %{
                 role: "system",
                 content:
-                  "The current code being edited is:\n\n<code lang=\"elixir\">#{code}</code>\n\n When answering the question, do not change existing modules and functions unless explicitly instructed, favor adding code and changing implementations."
-              }
-            ),
-            %{role: "user", content: user_query}
-          ]
-          |> Enum.filter(& &1),
-        function_call: %{name: func},
-        functions: [
-          %{
-            name: func,
-            description: "Report back valid elixir code to the user to be run.",
-            parameters: %{
-              type: "object",
-              properties: %{
-                code: %{
-                  type: "string",
-                  description: "Valid elixir code with newlines properly delimited"
+                  "You are an Senior Elixir developer whos job it is to write the correct code to answer the users questions."
+              },
+              if(code != nil,
+                do: %{
+                  role: "system",
+                  content:
+                    "The current code being edited is:\n\n<code lang=\"elixir\">#{code}</code>\n\n When answering the question, do not change existing modules and functions unless explicitly instructed, favor adding code and changing implementations."
+                }
+              ),
+              %{role: "user", content: user_query}
+            ]
+            |> Enum.filter(& &1),
+          function_call: %{name: func},
+          functions: [
+            %{
+              name: func,
+              description: "Report back valid elixir code to the user to be run.",
+              parameters: %{
+                type: "object",
+                properties: %{
+                  code: %{
+                    type: "string",
+                    description: "Valid elixir code with newlines properly delimited"
+                  }
                 }
               }
             }
-          }
-        ]
+          ]
+        ],
+        config_override
       )
 
     %{
